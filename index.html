@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Padankan Bunyi Haiwan</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(135deg,#dff6ff,#fff8d9);color:#18324a}
+.wrap{max-width:980px;margin:auto;padding:16px}.hero{background:#fff;border-radius:28px;padding:18px;text-align:center;box-shadow:0 6px 20px #0002;margin-bottom:14px}
+h1{font-size:clamp(30px,6vw,48px);margin:0 0 6px}.sub{font-size:18px;margin:0 0 12px}.score{display:inline-block;background:#fff3a6;border-radius:999px;padding:10px 22px;font-size:22px;font-weight:800}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:#ffffffea;border-radius:24px;padding:16px;box-shadow:0 6px 20px #0001}
+h2{text-align:center;font-size:22px;margin:0 0 12px}.animals{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.animal{background:#fff;border:4px solid #d9e9f5;border-radius:20px;min-height:145px;padding:8px;cursor:pointer;text-align:center;touch-action:none;user-select:none}
+.animal.selected{border-color:#2374e1;background:#eaf4ff}.animal.done{opacity:.38;cursor:default}
+.pic{height:82px;display:flex;align-items:center;justify-content:center}.pic svg{width:90px;height:76px}.name{font-size:20px;font-weight:800;margin-top:4px}
+.sounds{display:grid;gap:12px}.drop{background:#fff;border:4px dashed #b9c8d6;border-radius:20px;min-height:78px;padding:12px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.drop.over{border-color:#2374e1;background:#eaf4ff}.drop.correct{border-color:#20a052;border-style:solid;background:#eafff0}.drop.wrong{border-color:#e33434;border-style:solid;background:#fff0f0}
+.sound{font-size:19px;font-weight:800;flex:1}.listen{border:0;border-radius:14px;background:#eaf4ff;font-size:23px;min-width:50px;min-height:50px;cursor:pointer}
+.placed{font-size:32px}.feedback{text-align:center;font-size:22px;font-weight:800;min-height:32px;padding:12px}
+.actions{text-align:center}.reset{border:0;border-radius:16px;padding:13px 24px;background:#2374e1;color:#fff;font-size:19px;font-weight:800;min-height:50px}
+@media(max-width:680px){.grid{grid-template-columns:1fr}.wrap{padding:10px}.animals{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap" id="game">
+<section class="hero">
+<h1>🐾 Padankan Bunyi Haiwan</h1>
+<p class="sub">Pilih gambar haiwan dan padankan dengan bunyi yang betul.</p>
+<div class="score">⭐ Skor: <span id="score">0</span> / 5</div>
+</section>
+<div class="grid">
+<section class="card"><h2>🐾 Pilih Haiwan</h2><div class="animals" id="animals"></div></section>
+<section class="card"><h2>🔊 Pilih Bunyi</h2><div class="sounds" id="sounds"></div></section>
+</div>
+<div class="feedback" id="feedback" aria-live="polite">Jom mula! 😊</div>
+<div class="actions"><button class="reset" id="reset">🔄 Cuba Lagi</button></div>
+</div>
+
+<script>
+const animalsData=[
+{name:"Kambing",sound:"mmbekkk mmbekkk",emoji:"🐐",color:"#d9a441"},
+{name:"Itik",sound:"kuek kuek kuek",emoji:"🦆",color:"#f0c84b"},
+{name:"Ayam",sound:"kok kok kok kok kok",emoji:"🐔",color:"#e9a3a3"},
+{name:"Kucing",sound:"miaw miaw miaw",emoji:"🐱",color:"#d8a66d"},
+{name:"Lembu",sound:"moo moo moo",emoji:"🐄",color:"#777"}
+];
+const animals=document.getElementById("animals"),sounds=document.getElementById("sounds"),scoreEl=document.getElementById("score"),feedback=document.getElementById("feedback");
+let score=0,selected=null,done=new Set();
+
+function animalSVG(i){
+const common='stroke="#18324a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"';
+const svgs=[
+`<svg viewBox="0 0 120 90"><path d="M30 42 Q25 20 45 18 Q70 5 92 25 Q105 42 88 60 Q65 75 40 62Z" fill="#f2d6a2" ${common}/><path d="M40 22l-10-12M78 20l12-12" fill="none" ${common}/><circle cx="55" cy="35" r="3" fill="#18324a"/><circle cx="78" cy="35" r="3" fill="#18324a"/><path d="M61 47q7 6 14 0" fill="none" ${common}/></svg>`,
+`<svg viewBox="0 0 120 90"><ellipse cx="60" cy="48" rx="35" ry="25" fill="#fff0a8" ${common}/><circle cx="88" cy="35" r="18" fill="#fff0a8" ${common}/><path d="M102 25l12-8-5 15M45 30L20 18l9 25" fill="#fff0a8" ${common}/><circle cx="94" cy="32" r="3" fill="#18324a"/><path d="M98 41q8 4 13 0" fill="#f28c28" ${common}/></svg>`,
+`<svg viewBox="0 0 120 90"><ellipse cx="58" cy="50" rx="32" ry="24" fill="#fff" ${common}/><circle cx="85" cy="35" r="18" fill="#fff" ${common}/><path d="M75 19l-4-14 13 9M92 19l7-13 4 16" fill="#e64b3c" ${common}/><path d="M100 37l15 7-15 7" fill="#f2b544" ${common}/><circle cx="91" cy="31" r="3" fill="#18324a"/></svg>`,
+`<svg viewBox="0 0 120 90"><circle cx="60" cy="48" r="28" fill="#e4b98a" ${common}/><path d="M37 28L30 8l18 13M83 28L90 8 72 21" fill="#e4b98a" ${common}/><circle cx="49" cy="44" r="3" fill="#18324a"/><circle cx="71" cy="44" r="3" fill="#18324a"/><path d="M53 56q7 6 14 0" fill="none" ${common}/></svg>`,
+`<svg viewBox="0 0 120 90"><ellipse cx="57" cy="48" rx="38" ry="25" fill="#f4f4f4" ${common}/><circle cx="89" cy="37" r="18" fill="#f4f4f4" ${common}/><ellipse cx="96" cy="38" rx="8" ry="12" fill="#555" ${common}/><circle cx="94" cy="32" r="3" fill="#18324a"/><path d="M99 42q8 5 14 0" fill="#e9a03f" ${common}/><circle cx="48" cy="45" r="7" fill="#555"/></svg>`
+]; return svgs[i];
+}
+function speak(text){if("speechSynthesis" in window){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="ms-MY";u.rate=.8;speechSynthesis.speak(u)}}
+
+function render(){
+score=0;selected=null;done.clear();scoreEl.textContent="0";feedback.textContent="Jom mula! 😊";animals.innerHTML="";sounds.innerHTML="";
+animalsData.forEach((x,i)=>{
+const a=document.createElement("div");a.className="animal";a.draggable=true;a.tabIndex=0;a.dataset.id=i;
+a.innerHTML=`<div class="pic">${animalSVG(i)}</div><div class="name">${x.name}</div>`;
+a.addEventListener("dragstart",e=>e.dataTransfer.setData("text/plain",i));
+a.addEventListener("click",()=>selectAnimal(i,a));
+a.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();a.click()}});
+animals.appendChild(a);
+const d=document.createElement("div");d.className="drop";d.dataset.id=i;d.tabIndex=0;
+d.innerHTML=`<button class="listen" type="button" aria-label="Dengar bunyi">🔊</button><span class="sound">${x.sound}</span><span class="placed"></span>`;
+d.querySelector(".listen").addEventListener("click",e=>{e.stopPropagation();speak(x.sound)});
+d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("over")});
+d.addEventListener("dragleave",()=>d.classList.remove("over"));
+d.addEventListener("drop",e=>{e.preventDefault();d.classList.remove("over");check(Number(e.dataTransfer.getData("text/plain")),i,d)});
+d.addEventListener("click",()=>{if(selected!==null)check(selected,i,d)});
+sounds.appendChild(d);
+});
+}
+function selectAnimal(i,a){if(done.has(i))return;selected=i;document.querySelectorAll(".animal").forEach(v=>v.classList.remove("selected"));a.classList.add("selected");feedback.textContent="Sekarang pilih bunyi yang betul. 🔊";}
+function check(ai,ti,d){
+if(ai<0||done.has(ai))return;
+if(ai===ti){
+done.add(ai);score++;scoreEl.textContent=score;d.classList.add("correct");d.querySelector(".placed").textContent=animalsData[ai].emoji;
+const a=document.querySelector(`.animal[data-id="${ai}"]`);a.classList.remove("selected");a.classList.add("done");a.draggable=false;selected=null;speak(animalsData[ai].sound);
+feedback.textContent=score===5?"🎉 TAHNIAH! Semua jawapan betul! Hebat!":"✅ BETUL! Syabas!";
+}else{d.classList.add("wrong");feedback.textContent="❌ Cuba lagi. Dengar bunyi dan cari haiwan yang betul.";setTimeout(()=>d.classList.remove("wrong"),650)}
+}
+document.getElementById("reset").addEventListener("click",render);render();
+</script>
+</body>
+</html>
